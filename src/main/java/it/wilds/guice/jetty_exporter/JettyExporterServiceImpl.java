@@ -21,18 +21,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.servlet.Servlet;
 
-import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
-import org.eclipse.jetty.servlet.ServletHandler;
+import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 public class JettyExporterServiceImpl {
+
+  protected final static Logger _log = Logger.getLogger(JettyExporterServiceImpl.class.getSimpleName());
 
   private final List<Server> _servers = new ArrayList<Server>();
 
@@ -50,26 +50,24 @@ public class JettyExporterServiceImpl {
     for (int port : servicesByPort.keySet()) {
 
       Server server = new Server(port);
-      
-      List<Handler> handlers = new ArrayList<Handler>();
+
+      ServletContextHandler context = new ServletContextHandler();
+      context.setContextPath("/");
+
       for (ServletSource service : servicesByPort.get(port)) {
         URL url = service.getUrl();
-        Servlet servlet = service.getServlet();
-        ServletHandler servletHandler = new ServletHandler();
-        servletHandler.addServletWithMapping(new ServletHolder(servlet),
-            url.getPath());
-        handlers.add(servletHandler);
+        _log.info("Bind servlet " + service.getClass().getName() + " to " + url);
+        context.addServlet(new ServletHolder(service.getServlet()), url.getPath());
       }
-      
-      HandlerList handlersList = new HandlerList();
-      handlersList.setHandlers(handlers.toArray(new Handler[handlers.size()]));
-      server.setHandler(handlersList);
+
+      server.setHandler(context);
 
       _servers.add(server);
     }
 
     for (Server server : _servers) {
       server.start();
+      _log.info("Server start on " + server.getURI());
     }
   }
 
