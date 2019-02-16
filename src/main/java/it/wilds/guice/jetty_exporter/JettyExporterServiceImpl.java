@@ -21,14 +21,22 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.HttpConfiguration;
+import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 public class JettyExporterServiceImpl {
 
@@ -50,6 +58,33 @@ public class JettyExporterServiceImpl {
     for (int port : servicesByPort.keySet()) {
 
       Server server = new Server(port);
+
+      List<Connector> connectors = new ArrayList<>();
+
+      ServerConnector connector = new ServerConnector(server);
+      connector.setPort(port);
+      connectors.add(connector);
+
+      if (this.getClass().getResource("/keystore.jks") != null) {
+        HttpConfiguration https = new HttpConfiguration();
+        https.addCustomizer(new SecureRequestCustomizer());
+        SslContextFactory sslContextFactory = new SslContextFactory();
+        sslContextFactory.setKeyStorePath(this.getClass().getResource("/keystore.jks").toExternalForm());
+        if (this.getClass().getResource("/keystore.properties") != null) {
+          Properties properties = new Properties();
+          properties.load(this.getClass().getResourceAsStream("/keystore.properties"));
+          sslContextFactory.setKeyStorePassword(properties.getProperty("store-password"));
+          sslContextFactory.setKeyManagerPassword(properties.getProperty("manager-password"));
+        }
+        ServerConnector sslConnector = new ServerConnector(server, new SslConnectionFactory(sslContextFactory, "http/1.1"), new HttpConnectionFactory(https));
+        sslConnector.setPort(port + 1);
+        connectors.add(sslConnector);
+        _log.info("HTTPS available on port " + (port + 1));
+      } else {
+        _log.warning("Error: SSL Connection not available, no keystore");
+      }
+
+      server.setConnectors(connectors.toArray(new Connector[0]));
 
       ServletContextHandler context = new ServletContextHandler();
       context.setContextPath("/");
