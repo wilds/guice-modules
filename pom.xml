@@ -8,7 +8,7 @@
   <description>A Guice module for exporting Servlets to a Jetty server instance.</description>
 
   <properties>
-    <jetty.version>9.4.32.v20200930</jetty.version>
+    <jetty.version>9.4.34.v20201102</jetty.version>
     <guice.version>4.2.3</guice.version>
   </properties>
 
